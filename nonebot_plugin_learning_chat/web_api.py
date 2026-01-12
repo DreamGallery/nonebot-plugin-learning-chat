@@ -17,26 +17,7 @@ except ImportError:
 from .handler import LearningChat
 from .models import ChatMessage, ChatContext, ChatAnswer, ChatBlackList
 from .config import config_manager, driver
-from .web_page import login_page, admin_app
-
-requestAdaptor = """
-requestAdaptor(api) {
-    api.headers["token"] = localStorage.getItem("token");
-    return api;
-},
-"""
-responseAdaptor = """
-responseAdaptor(api, payload, query, request, response) {
-    if (response.data.detail == '登录验证失败或已失效，请重新登录') {
-        window.location.href = '/learning_chat/login'
-        window.localStorage.clear()
-        window.sessionStorage.clear()
-        window.alert('登录验证失败或已失效，请重新登录')
-    }
-    return payload
-},
-"""
-
+from .web_page_simple import LOGIN_PAGE_HTML, ADMIN_PAGE_HTML
 
 def authentication():
     def inner(token: Optional[str] = Header(...)):
@@ -76,7 +57,7 @@ async def init_web():
         token = jwt.encode(
             {
                 "username": user.username,
-                "exp": datetime.datetime.now(datetime.timezone.utc)
+                "exp": datetime.datetime.now(datetime.UTC)
                 + datetime.timedelta(minutes=30),
             },
             config_manager.config.web_secret_key,
@@ -131,7 +112,7 @@ async def init_web():
                         for member in members
                     ]
                 )
-            config = config_manager.config.dict(exclude={"group_config"})
+            config = config_manager.config.model_dump(exclude={"group_config"})
             config["member_list"] = member_list
             return config
         except ValueError:
@@ -173,7 +154,7 @@ async def init_web():
                 }
                 for member in members
             ]
-            config = config_manager.get_group_config(group_id).dict()
+            config = config_manager.get_group_config(group_id).model_dump()
             config["break_probability"] = config["break_probability"] * 100
             config["speak_continuously_probability"] = (
                 config["speak_continuously_probability"] * 100
@@ -427,13 +408,8 @@ async def init_web():
 
     @app.get("/learning_chat/login", response_class=HTMLResponse)
     async def login_page_app():
-        return login_page.render(site_title="登录 | Learning-Chat 后台管理", theme="ang")
+        return LOGIN_PAGE_HTML
 
     @app.get("/learning_chat/admin", response_class=HTMLResponse)
     async def admin_page_app():
-        return admin_app.render(
-            site_title="Learning-Chat 后台管理",
-            theme="ang",
-            requestAdaptor=requestAdaptor,
-            responseAdaptor=responseAdaptor,
-        )
+        return ADMIN_PAGE_HTML
